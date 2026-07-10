@@ -1,73 +1,75 @@
 from __future__ import annotations
 
-import base64
-import gzip
 import json
 from datetime import date
+from pathlib import Path
 
 from database.models import Estoque, Insumo, ProcessoCompra
 from services.estoque_service import atualizar_calculos
 
-_DATA = """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"""
-
-PROCESSOS = [
-    {"numero":"25410.018138/2024-40","descricao":"SOLUÇÃO DE CRIO","status":"aberto","etapa":"Preção 30/06","observacoes":"análise de catálogo"},
-    {"numero":"25410006413/2024-82","descricao":"DMSO (REGULAR)","status":"aberto","etapa":"aguardando agendamento de pregão","observacoes":"pesquisa de preço"},
-    {"numero":"25410.018536/2024-66","descricao":"Sampling site","status":"parado","etapa":"SECOM","observacoes":"Processo parado na SECOM desde 13/01/2025; abrir novo processo"},
-    {"numero":"25410004872/2024-21","descricao":"BOLSA DE CRIO (REGULAR)","status":"vigente","etapa":"ata disponível","observacoes":"A12303: 284 un.; A12903: 100 un.; ata até 03/12/2026"},
-    {"numero":"25410.001677/2026-10","descricao":"CONTROLE ABX (REGULAR)","status":"aberto","etapa":"fase final","observacoes":"Processo de compra por dispensa; Notes 68147"},
-    {"numero":"25410.000388/2026-95","descricao":"metilcelulose","status":"aberto","etapa":"recebimento de propostas","observacoes":"Notes 68178"},
-    {"numero":"25410.013126/2025-18","descricao":"SEPAX PRO","status":"aberto","etapa":"não informado","observacoes":None},
-    {"numero":"25410.002906/2026-13","descricao":"Insumos ABX","status":"aberto","etapa":"fase final de compra","observacoes":None},
-    {"numero":"25410.002465/2025-61","descricao":"DMSO e Bolsa de Crio (dispensa)","status":"finalizado","etapa":"finalizado","observacoes":"Processo já utilizado"},
-    {"numero":"25410.004335/2025-62","descricao":"INSUMOS ABX (REGULAR)","status":"finalizado","etapa":"finalizado","observacoes":"Itens recebidos em Dez/2025"},
-]
+_DATA_FILE = Path(__file__).with_name("seed_cemo.json")
 
 
-def _produtos() -> list[dict]:
-    return json.loads(gzip.decompress(base64.b64decode(_DATA)).decode("utf-8"))
+def _carregar_dados() -> dict:
+    if not _DATA_FILE.exists():
+        return {"produtos": [], "processos": []}
+    with _DATA_FILE.open("r", encoding="utf-8") as arquivo:
+        return json.load(arquivo)
 
 
-def seed_cemo(session) -> int:
-    if session.query(Insumo).count() > 0:
-        return 0
+def _parse_date(valor):
+    if not valor:
+        return None
+    try:
+        return date.fromisoformat(str(valor)[:10])
+    except (TypeError, ValueError):
+        return None
 
-    total = 0
-    for item in _produtos():
-        insumo = Insumo(
-            codigo=item["codigo"],
-            descricao=item["descricao"],
-            categoria=item.get("categoria"),
-            subcategoria=item.get("subcategoria"),
-            unidade_medida=item.get("unidade"),
-            exclusivo=bool(item.get("exclusivo")),
-            ativo=True,
-            observacoes=item.get("observacoes"),
-            dados_origem="Planilha INSUMOS CPC_CEMO (3).xlsx",
-        )
-        session.add(insumo)
-        session.flush()
-        estoque = Estoque(
-            insumo_id=insumo.id,
-            quantidade_atual=item.get("quantidade") or 0,
-            estoque_minimo=item.get("minimo") or 0,
-            consumo_medio_mensal=item.get("cmm"),
-            local_armazenamento=item.get("local"),
-            data_ultima_contagem=date.fromisoformat(item["ultima_contagem"]) if item.get("ultima_contagem") else None,
-        )
-        atualizar_calculos(estoque)
-        session.add(estoque)
-        total += 1
 
-    for item in PROCESSOS:
+def seed_cemo(session) -> None:
+    dados = _carregar_dados()
+
+    if session.query(Insumo).count() == 0:
+        for item in dados.get("produtos", []):
+            insumo = Insumo(
+                codigo=item.get("codigo"),
+                descricao=item.get("descricao") or "Sem descrição",
+                categoria=item.get("categoria"),
+                subcategoria=item.get("subcategoria"),
+                unidade_medida=item.get("unidade_medida"),
+                exclusivo=bool(item.get("exclusivo")),
+                observacoes=item.get("observacoes"),
+                dados_origem=json.dumps(item.get("dados_origem") or {}, ensure_ascii=False, default=str),
+                ativo=True,
+            )
+            session.add(insumo)
+            session.flush()
+
+            estoque = Estoque(
+                insumo_id=insumo.id,
+                quantidade_atual=float(item.get("quantidade_atual") or 0),
+                estoque_minimo=float(item.get("estoque_minimo") or 0),
+                consumo_medio_mensal=(float(item["consumo_medio_mensal"]) if item.get("consumo_medio_mensal") not in (None, "") else None),
+                local_armazenamento=item.get("local_armazenamento"),
+            )
+            atualizar_calculos(estoque)
+            session.add(estoque)
+
+    numeros_existentes = {n for (n,) in session.query(ProcessoCompra.numero_processo).all()}
+    for item in dados.get("processos", []):
+        numero = item.get("numero_processo")
+        if not numero or numero in numeros_existentes:
+            continue
         session.add(
             ProcessoCompra(
-                numero_processo=item["numero"],
-                descricao=item["descricao"],
-                status=item["status"],
-                etapa_atual=item["etapa"],
+                numero_processo=numero,
+                descricao=item.get("descricao"),
+                etapa_atual=item.get("etapa_atual") or "solicitação",
+                status=item.get("status") or "aberto",
+                prioridade=item.get("prioridade") or "média",
+                data_abertura=_parse_date(item.get("data_abertura")),
                 observacoes=item.get("observacoes"),
-                prioridade="média",
+                responsavel_atual=item.get("responsavel_atual"),
             )
         )
-    return total
+        numeros_existentes.add(numero)
