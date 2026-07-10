@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from config.database import Base, engine, get_session
 from config.settings import INITIAL_ADMIN_EMAIL, INITIAL_ADMIN_PASSWORD
+from data.seed_cemo import seed_cemo
 from database.models import Usuario
 from services.auth_service import hash_password
 
@@ -22,6 +23,8 @@ def init_db() -> None:
                     trocar_senha=True,
                 )
             )
+            session.flush()
+        seed_cemo(session)
 
 
 if __name__ == "__main__":
